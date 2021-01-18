@@ -5,54 +5,105 @@ from os import listdir, rename, mkdir, rmdir
 from os.path import isfile, join, exists
 from shutil import rmtree
 
-# Lista de arquivos na pasta
-pasta = str(sys.argv[1])
-arquivos = [join(pasta,f) for f in listdir(pasta) if isfile(join(pasta, f))]
-# Renomear aquivos
-for i in range(len(arquivos)):
-    rename(arquivos[i], join(pasta, '{:0>2d}.jpg'.format(i+1)))
+def getListaImagens(pasta):
+  # Lista de arquivos na pasta
+  arquivos = [join(pasta,f) for f in listdir(pasta) if isfile(join(pasta, f))] 
+  imagens = list()
+  for a in arquivos:
+    imagens.append(Image.open(a))
+  return imagens
+    
+def separarImagem(original, linhas=1, colunas=1):
+    partesDaImagem = list()
+    largura, altura = original.size
+    nomeOriginal = original.filename
+    i_extensao = original.filename.rfind(".")
+    alturaParte = altura//linhas
+    larguraParte = largura//colunas
+
+    y = 0
+    l = 0
+    while y <= altura - alturaParte:
+        x = 0
+        c = 0
+        while x <= largura - larguraParte:
+            i = original.copy()
+            i = i.crop((x, y, x + larguraParte, y + alturaParte))            
+            i.filename = nomeOriginal[:i_extensao] + '-' + str(l) + str(c) + nomeOriginal[i_extensao:]
+            partesDaImagem.append(i)
+            
+            x += larguraParte
+            c += 1
+        y += alturaParte
+        l += 1
+
+    return partesDaImagem
+
+def separarPaginasMultiplas(listaImagens):
+    menorLargura = 0
+    menorAltura = 0
+    
+    # Percorre toda a lista para descobrir qual o menor tamanho
+    for i in range(len(listaImagens)):
+        if i == 0:
+            menorLargura, menorAltura = listaImagens[i].size
+        
+        larguraAtual, alturaAtual = listaImagens[i].size
+        
+        if(larguraAtual < menorLargura):
+            menorLargura = larguraAtual
+        if(alturaAtual < menorAltura):
+            menorAltura = alturaAtual
+    
+    # Percorre novamente para separar as páginas
+    listaRecortada = list()
+    for i in range(len(listaImagens)):
+        larguraAtual, alturaAtual = listaImagens[i].size
+        
+        numPáginasHoriz = larguraAtual // menorLargura
+        numPáginasVert = alturaAtual // menorAltura
+        
+        if numPáginasHoriz <= 1 and numPáginasVert <= 1:
+            listaRecortada.append(listaImagens[i])
+        else:
+            listaRecortada += separarImagem(listaImagens[i], numPáginasVert, numPáginasHoriz)
+  
+    # Percorre pela terceira vez para deixar todas as imagens do mesmo tamanho
+    listaMesmoTamanho = list()
+    for i in listaRecortada:
+        im = i.crop((0, 0, menorLargura, menorAltura))
+        im.filename = i.filename
+        listaMesmoTamanho.append(im)
+    
+    return listaMesmoTamanho
+
+def salvarImagens(listaImagens, nomePasta='final'):
+    i_pasta = listaImagens[0].filename.rfind('\\')
+    pastaDasImagens = listaImagens[0].filename[:i_pasta+1]
+    pastaCriada = pastaDasImagens + nomePasta + '\\'
+    print(pastaCriada)
+    
+    # Remover a pasta se já existir
+    if exists(pastaCriada):
+        rmtree(pastaCriada)
+    mkdir(pastaCriada)
+    
+    for im in listaImagens:
+        im.save(pastaCriada + im.filename[i_pasta+1:])
+    
+    """for im in listaImagens:
+
+        #print(im.filename[:x+1] + nomePasta + '\\' + im.filename[x+1:])
+        im.save(im.filename[:x+1] + nomePasta + '\\' + im.filename[x+1:])
+"""
+
+a = getListaImagens(sys.argv[1])
+b = separarPaginasMultiplas(a)
+
+salvarImagens(b)
 
 
-
-# Abrir as imagens e encontrar a menor das alturas
-listaImagens = list()
-menorAltura = 0
-menorLargura = 0
-for i in range(len(arquivos)):
-    listaImagens.append(Image.open(arquivos[i]))
-    if i == 0:
-        menorLargura, menorAltura = listaImagens[i].size
-
-    larguraAtual = listaImagens[i].size[0]
-    if(larguraAtual < menorLargura):
-        menorLargura = larguraAtual
-    alturaAtual = listaImagens[i].size[1]
-    if(alturaAtual < menorAltura):
-        menorAltura = alturaAtual
-
-
-# Cortar todas as imagens para ficar da mesma altura
-imagensCortadas = list()
-for i in listaImagens:
-    imagensCortadas.append(i.crop((0, 0, menorLargura, menorAltura)))
-
-
-# Salvar imagens cortadas numa pasta
-pastaCortadas = join(pasta, 'cortadas')
-
-if exists(pastaCortadas):
-    rmtree(pastaCortadas)
-mkdir(pastaCortadas)
-
-nomeCortadas = list()
-for i in range(len(imagensCortadas)):
-    nomeCortadas.append('{}\\{:0>2d}.jpg'.format(pastaCortadas, i + 1))
-    imagensCortadas[i].save(join(pastaCortadas, nomeCortadas[i]))
-
-
-for i in nomeCortadas:
-    print(i)
-
+"""
 # Converter em pdf
 quantidade = len(imagensCortadas)
 #if quantidade % 4 != 0:
@@ -61,3 +112,4 @@ quantidade = len(imagensCortadas)
 with open('final.pdf', "wb") as f:
     f.write(img2pdf.convert(nomeCortadas))
 
+"""
