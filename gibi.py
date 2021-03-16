@@ -165,7 +165,7 @@ pastaAtual = sys.argv[1]
 if sys.argv[1] == '-p':
     print('Convertendo em pdf')
     pastaAtual = sys.argv[2]
-    converterEmPdf(join(pastaAtual, NOVA_PASTA), pastaAtual)
+    converterEmPdf(pastaAtual, pastaAtual)
     print('Pronto!')
     exit()
 # Separar páginas duplicadas
