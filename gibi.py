@@ -1,35 +1,55 @@
 import img2pdf
 from PIL import Image
 import sys
+from math import ceil
 from os import listdir, rename, mkdir, rmdir
-from os.path import isfile, join, exists
+from os.path import isfile, join, exists, splitext, basename, dirname
 from shutil import rmtree
+
+
+IGUALAR = True
+PAGINAS_DUPLAS = False
+NOVA_PASTA = '_pdf'
+
 
 def getListaImagens(pasta):
   # Lista de arquivos na pasta
-  arquivos = [join(pasta,f) for f in listdir(pasta) if isfile(join(pasta, f))] 
+  
+  print(f'Obtendo imagens de \"{pasta}\"')
+  arquivos = [join(pasta,f) for f in listdir(pasta) if isfile(join(pasta, f))]
   imagens = list()
   for a in arquivos:
+    if splitext(a)[1] not in ['.png', '.jpg', '.jpeg']:
+        continue
     imagens.append(Image.open(a))
+  print(f'{len(imagens)} imagens encontradas\n')
   return imagens
     
 def separarImagem(original, linhas=1, colunas=1):
     partesDaImagem = list()
     largura, altura = original.size
-    nomeOriginal = original.filename
-    i_extensao = original.filename.rfind(".")
+    pasta = dirname(original.filename)
+    nomeArquivo = original.filename
+    i_extensao = nomeArquivo.rfind(".")
     alturaParte = altura//linhas
     larguraParte = largura//colunas
 
     y = 0
     l = 0
+    # Percorre no seguinte sentido
+    #   1 2 3
+    #   4 5 6
+    #   7 8 9
+    print('Arquivos gerados:')
     while y <= altura - alturaParte:
         x = 0
         c = 0
         while x <= largura - larguraParte:
             i = original.copy()
-            i = i.crop((x, y, x + larguraParte, y + alturaParte))            
-            i.filename = nomeOriginal[:i_extensao] + '-' + str(l) + str(c) + nomeOriginal[i_extensao:]
+            i = i.crop((x, y, x + larguraParte, y + alturaParte))
+            # Nomeia as partes
+            i.filename = nomeArquivo[:i_extensao] + '-' + str(l) + str(c) + nomeArquivo[i_extensao:]
+            print(i.filename)
             partesDaImagem.append(i)
             
             x += larguraParte
@@ -43,6 +63,7 @@ def separarPaginasMultiplas(listaImagens):
     menorLargura = 0
     menorAltura = 0
     
+    print(f'Verificando {len(listaImagens)} paginas: ', end='')
     # Percorre toda a lista para descobrir qual o menor tamanho
     for i in range(len(listaImagens)):
         if i == 0:
@@ -54,62 +75,115 @@ def separarPaginasMultiplas(listaImagens):
             menorLargura = larguraAtual
         if(alturaAtual < menorAltura):
             menorAltura = alturaAtual
+    print('OK')
     
     # Percorre novamente para separar as páginas
+    print('Recortanto... ')
     listaRecortada = list()
     for i in range(len(listaImagens)):
         larguraAtual, alturaAtual = listaImagens[i].size
         
-        numPáginasHoriz = larguraAtual // menorLargura
-        numPáginasVert = alturaAtual // menorAltura
-        
-        if numPáginasHoriz <= 1 and numPáginasVert <= 1:
+        numColunas = round(larguraAtual / menorLargura)
+        numLinhas = round(alturaAtual / menorAltura)
+
+        if numColunas <= 1 and numLinhas <= 1:
             listaRecortada.append(listaImagens[i])
         else:
-            listaRecortada += separarImagem(listaImagens[i], numPáginasVert, numPáginasHoriz)
-  
-    # Percorre pela terceira vez para deixar todas as imagens do mesmo tamanho
-    listaMesmoTamanho = list()
-    for i in listaRecortada:
-        im = i.crop((0, 0, menorLargura, menorAltura))
-        im.filename = i.filename
-        listaMesmoTamanho.append(im)
+            #print(f'Separando pagina {i} em {numLinhas} linhas e {numColunas} colunas')
+            listaRecortada += separarImagem(listaImagens[i], numLinhas, numColunas)
+    print('OK')
+    print(f'Total de {len(listaRecortada)} paginas\n')
     
-    return listaMesmoTamanho
+    if IGUALAR == False:
+        return listaRecortada
+    else:
+        print('Igualhando tamanhos: ', end='')
+        # Percorre pela terceira vez para deixar todas as imagens do mesmo tamanho
+        listaMesmoTamanho = list()
+        for i in listaRecortada:
+            im = i.crop((0, 0, menorLargura, menorAltura))
+            im.filename = i.filename
+            listaMesmoTamanho.append(im)
+        print(f'({menorLargura}x{menorAltura}) OK')
+            
+        return listaMesmoTamanho
 
-def salvarImagens(listaImagens, nomePasta='final'):
-    i_pasta = listaImagens[0].filename.rfind('\\')
-    pastaDasImagens = listaImagens[0].filename[:i_pasta+1]
-    pastaCriada = pastaDasImagens + nomePasta + '\\'
-    print(pastaCriada)
+def separarPaginasDuplas(listaImagens):
+    metadeDaLargura = listaImagens[0].size
+    
+    # Gera uma lista de meias imagens
+    listaMetades = list()
+    for i in listaImagens:
+        listaMetades += separarImagem(i, 1, 2) # uma linha, duas colunas
+            
+    return listaMetades
+
+def salvarImagens(listaImagens, pastaEntrada, novaPasta):
+    #i_pasta = listaImagens[0].filename.rfind('\\')
+    #pastaDasImagens = listaImagens[0].filename[:i_pasta+1]
+    #pastaCriada = pastaDasImagens + nomePasta + '\\'
+    novaPasta = join(pastaEntrada, novaPasta)
+    
+    print(f'\nSalvando {len(listaImagens)} imagens\nDe: \"{basename(pastaEntrada)}\"\nEm: \"{basename(novaPasta)}\"')
     
     # Remover a pasta se já existir
-    if exists(pastaCriada):
-        rmtree(pastaCriada)
-    mkdir(pastaCriada)
+    if exists(novaPasta):
+        rmtree(novaPasta)
+    mkdir(novaPasta)
     
     for im in listaImagens:
-        im.save(pastaCriada + im.filename[i_pasta+1:])
+        #print(f'Salvando {im.filename}')
+        im.save(join(novaPasta, im.filename))
     
-    """for im in listaImagens:
+    print('OK\n')
 
-        #print(im.filename[:x+1] + nomePasta + '\\' + im.filename[x+1:])
-        im.save(im.filename[:x+1] + nomePasta + '\\' + im.filename[x+1:])
-"""
+def converterEmPdf(pastaEntrada, pastaSaida):
+    # Cria um arquivo pdf usando imagens contidas em pastaEntrada
+    # e salva em pastaSaida
+    print(f'Gerando em pdf a partir de:\n{pastaEntrada}')
+    
+    listaImagens = getListaImagens(pastaEntrada)
+    
+    #nomes = [join(pastaEntrada, n.filename) for n in listaImagens]
+    nomes = [n.filename for n in listaImagens]
+    for n in nomes:
+        print(n) 
+    
+    exit()
+    #nomePdf = pastaSaida + '\\' + pastaSaida.replace(' ', '_') + '.pdf'
+    nomePdf = pastaEntrada + '\\' + basename(pastaSaida) + '.pdf'
+    
+    with open(join(pastaSaida, nomePdf), "wb") as f:
+        f.write(img2pdf.convert(nomes))
 
-a = getListaImagens(sys.argv[1])
-b = separarPaginasMultiplas(a)
-
-salvarImagens(b)
+    print('OK')
 
 
-"""
-# Converter em pdf
-quantidade = len(imagensCortadas)
-#if quantidade % 4 != 0:
-#    print(f'Remova {quantidade % 4} imagem ou adicione {4 - quantidade % 4}')
-#else:
-with open('final.pdf', "wb") as f:
-    f.write(img2pdf.convert(nomeCortadas))
 
-"""
+print('\n' + '~~'*10)
+pastaAtual = sys.argv[1]
+
+
+# Somente converte uma pasta de imagens em pdf
+if sys.argv[1] == '-p':
+    print('Convertendo em pdf')
+    converterEmPdf(sys.argv[2])
+    print('Pronto!')
+    exit()
+# Separar páginas duplicadas
+if sys.argv[1] == '-d':
+    print('Paginas duplas')
+    PAGINAS_DUPLAS = True
+    pastaAtual = sys.argv[2]
+
+
+
+a = getListaImagens(pastaAtual)
+
+if PAGINAS_DUPLAS:
+    b = separarPaginasDuplas(a)
+else:
+    b = separarPaginasMultiplas(a)
+
+salvarImagens(b, pastaAtual, NOVA_PASTA)
+converterEmPdf(join(pastaAtual, NOVA_PASTA), NOVA_PASTA)
