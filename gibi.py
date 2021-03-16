@@ -15,14 +15,12 @@ NOVA_PASTA = '_pdf'
 def getListaImagens(pasta):
   # Lista de arquivos na pasta
   
-  print(f'Obtendo imagens de \"{pasta}\"')
   arquivos = [join(pasta,f) for f in listdir(pasta) if isfile(join(pasta, f))]
   imagens = list()
   for a in arquivos:
     if splitext(a)[1] not in ['.png', '.jpg', '.jpeg']:
         continue
     imagens.append(Image.open(a))
-  print(f'{len(imagens)} imagens encontradas\n')
   return imagens
     
 def separarImagem(original, linhas=1, colunas=1):
@@ -40,7 +38,6 @@ def separarImagem(original, linhas=1, colunas=1):
     #   1 2 3
     #   4 5 6
     #   7 8 9
-    print('Arquivos gerados:')
     while y <= altura - alturaParte:
         x = 0
         c = 0
@@ -49,7 +46,7 @@ def separarImagem(original, linhas=1, colunas=1):
             i = i.crop((x, y, x + larguraParte, y + alturaParte))
             # Nomeia as partes
             i.filename = nomeArquivo[:i_extensao] + '-' + str(l) + str(c) + nomeArquivo[i_extensao:]
-            print(i.filename)
+            #print(i.filename)
             partesDaImagem.append(i)
             
             x += larguraParte
@@ -63,6 +60,7 @@ def separarPaginasMultiplas(listaImagens):
     menorLargura = 0
     menorAltura = 0
     
+    print('\n' + '~~'*15)
     print(f'Verificando {len(listaImagens)} paginas: ', end='')
     # Percorre toda a lista para descobrir qual o menor tamanho
     for i in range(len(listaImagens)):
@@ -92,7 +90,7 @@ def separarPaginasMultiplas(listaImagens):
             #print(f'Separando pagina {i} em {numLinhas} linhas e {numColunas} colunas')
             listaRecortada += separarImagem(listaImagens[i], numLinhas, numColunas)
     print('OK')
-    print(f'Total de {len(listaRecortada)} paginas\n')
+    print(f'Total de {len(listaRecortada)} paginas')
     
     if IGUALAR == False:
         return listaRecortada
@@ -124,7 +122,8 @@ def salvarImagens(listaImagens, pastaEntrada, novaPasta):
     #pastaCriada = pastaDasImagens + nomePasta + '\\'
     novaPasta = join(pastaEntrada, novaPasta)
     
-    print(f'\nSalvando {len(listaImagens)} imagens\nDe: \"{basename(pastaEntrada)}\"\nEm: \"{basename(novaPasta)}\"')
+    print('\n' + '~~'*15)
+    print(f'Salvando {len(listaImagens)} imagens\nDe: \"{pastaEntrada}\"\nEm: \"{novaPasta}\"')
     
     # Remover a pasta se já existir
     if exists(novaPasta):
@@ -133,26 +132,25 @@ def salvarImagens(listaImagens, pastaEntrada, novaPasta):
     
     for im in listaImagens:
         #print(f'Salvando {im.filename}')
-        im.save(join(novaPasta, im.filename))
+        im.save(join(novaPasta, basename(im.filename)))
     
-    print('OK\n')
+    print('OK')
 
 def converterEmPdf(pastaEntrada, pastaSaida):
     # Cria um arquivo pdf usando imagens contidas em pastaEntrada
     # e salva em pastaSaida
-    print(f'Gerando em pdf a partir de:\n{pastaEntrada}')
+    print('\n' + '~~'*15)
+    print(f'Gerando pdf')
+    print(f'De: {pastaEntrada}')
+    print(f'Em: {pastaSaida}\n')
     
     listaImagens = getListaImagens(pastaEntrada)
-    
-    #nomes = [join(pastaEntrada, n.filename) for n in listaImagens]
     nomes = [n.filename for n in listaImagens]
-    for n in nomes:
-        print(n) 
-    
-    exit()
-    #nomePdf = pastaSaida + '\\' + pastaSaida.replace(' ', '_') + '.pdf'
-    nomePdf = pastaEntrada + '\\' + basename(pastaSaida) + '.pdf'
-    
+
+    # O arquivo tem o mesmo nome da pasta
+    nomePdf = basename(pastaSaida) + '.pdf'
+
+    print(f'Criando arquivo: {join(pastaSaida, nomePdf)}')
     with open(join(pastaSaida, nomePdf), "wb") as f:
         f.write(img2pdf.convert(nomes))
 
@@ -160,14 +158,14 @@ def converterEmPdf(pastaEntrada, pastaSaida):
 
 
 
-print('\n' + '~~'*10)
 pastaAtual = sys.argv[1]
 
 
 # Somente converte uma pasta de imagens em pdf
 if sys.argv[1] == '-p':
     print('Convertendo em pdf')
-    converterEmPdf(sys.argv[2])
+    pastaAtual = sys.argv[2]
+    converterEmPdf(join(pastaAtual, NOVA_PASTA), pastaAtual)
     print('Pronto!')
     exit()
 # Separar páginas duplicadas
@@ -186,4 +184,4 @@ else:
     b = separarPaginasMultiplas(a)
 
 salvarImagens(b, pastaAtual, NOVA_PASTA)
-converterEmPdf(join(pastaAtual, NOVA_PASTA), NOVA_PASTA)
+converterEmPdf(join(pastaAtual, NOVA_PASTA), pastaAtual)
