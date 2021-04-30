@@ -9,8 +9,14 @@ from shutil import rmtree
 
 IGUALAR = True
 PAGINAS_DUPLAS = False
+CMYK = False
+VERBOSE = False
 NOVA_PASTA = '_pdf'
 
+
+def verbose(string):
+    if VERBOSE:
+        print(string)
 
 def getListaImagens(pasta):
   # Lista de arquivos na pasta
@@ -20,7 +26,7 @@ def getListaImagens(pasta):
   for a in arquivos:
     if splitext(a)[1] not in ['.png', '.jpg', '.jpeg']:
         continue
-    imagens.append(Image.open(a))
+    imagens.append(Image.open(a)) # Abrir no modo CMYK
   return imagens
     
 def separarImagem(original, linhas=1, colunas=1):
@@ -60,8 +66,9 @@ def separarPaginasMultiplas(listaImagens):
     menorLargura = 0
     menorAltura = 0
     
-    print('\n' + '~~'*15)
-    print(f'Verificando {len(listaImagens)} paginas: ', end='')
+    verbose('\n' + '~~'*15)
+    verbose(f'Verificando {len(listaImagens)} paginas: ')
+    
     # Percorre toda a lista para descobrir qual o menor tamanho
     for i in range(len(listaImagens)):
         if i == 0:
@@ -73,10 +80,12 @@ def separarPaginasMultiplas(listaImagens):
             menorLargura = larguraAtual
         if(alturaAtual < menorAltura):
             menorAltura = alturaAtual
-    print('OK')
+    
+    verbose('OK')
     
     # Percorre novamente para separar as páginas
-    print('Recortanto... ')
+    
+    verbose('Recortanto... ')
     listaRecortada = list()
     for i in range(len(listaImagens)):
         larguraAtual, alturaAtual = listaImagens[i].size
@@ -89,20 +98,21 @@ def separarPaginasMultiplas(listaImagens):
         else:
             #print(f'Separando pagina {i} em {numLinhas} linhas e {numColunas} colunas')
             listaRecortada += separarImagem(listaImagens[i], numLinhas, numColunas)
-    print('OK')
-    print(f'Total de {len(listaRecortada)} paginas')
+    
+    verbose('OK')
+    verbose(f'Total de {len(listaRecortada)} paginas')
     
     if IGUALAR == False:
         return listaRecortada
     else:
-        print('Igualhando tamanhos: ', end='')
+        verbose('Igualhando tamanhos: ')
         # Percorre pela terceira vez para deixar todas as imagens do mesmo tamanho
         listaMesmoTamanho = list()
         for i in listaRecortada:
             im = i.crop((0, 0, menorLargura, menorAltura))
             im.filename = i.filename
             listaMesmoTamanho.append(im)
-        print(f'({menorLargura}x{menorAltura}) OK')
+        verbose(f'({menorLargura}x{menorAltura}) OK')
             
         return listaMesmoTamanho
 
@@ -122,8 +132,8 @@ def salvarImagens(listaImagens, pastaEntrada, novaPasta):
     #pastaCriada = pastaDasImagens + nomePasta + '\\'
     novaPasta = join(pastaEntrada, novaPasta)
     
-    print('\n' + '~~'*15)
-    print(f'Salvando {len(listaImagens)} imagens\nDe: \"{pastaEntrada}\"\nEm: \"{novaPasta}\"')
+    verbose('\n' + '~~'*15)
+    verbose(f'Salvando {len(listaImagens)} imagens\nDe: \"{pastaEntrada}\"\nEm: \"{novaPasta}\"')
     
     # Remover a pasta se já existir
     if exists(novaPasta):
@@ -131,18 +141,23 @@ def salvarImagens(listaImagens, pastaEntrada, novaPasta):
     mkdir(novaPasta)
     
     for im in listaImagens:
+        if CMYK == True:
+            im_final = im.convert('CMYK')
+        else:
+            im_final = im
+            
         #print(f'Salvando {im.filename}')
-        im.save(join(novaPasta, basename(im.filename)))
+        im_final.save(join(novaPasta, basename(im.filename)))
     
-    print('OK')
+    verbose('OK')
 
 def converterEmPdf(pastaEntrada, pastaSaida):
     # Cria um arquivo pdf usando imagens contidas em pastaEntrada
     # e salva em pastaSaida
-    print('\n' + '~~'*15)
-    print(f'Gerando pdf')
-    print(f'De: {pastaEntrada}')
-    print(f'Em: {pastaSaida}\n')
+    verbose('\n' + '~~'*15)
+    verbose(f'Gerando pdf')
+    verbose(f'De: {pastaEntrada}')
+    verbose(f'Em: {pastaSaida}\n')
     
     listaImagens = getListaImagens(pastaEntrada)
     nomes = [n.filename for n in listaImagens]
@@ -150,7 +165,7 @@ def converterEmPdf(pastaEntrada, pastaSaida):
     # O arquivo tem o mesmo nome da pasta
     nomePdf = basename(pastaSaida) + '.pdf'
 
-    print(f'Criando arquivo: {join(pastaSaida, nomePdf)}')
+    print(f'Criando arquivo: {nomePdf}')
     with open(join(pastaSaida, nomePdf), "wb") as f:
         f.write(img2pdf.convert(nomes))
 
@@ -173,7 +188,14 @@ if sys.argv[1] == '-d':
     print('Paginas duplas')
     PAGINAS_DUPLAS = True
     pastaAtual = sys.argv[2]
-
+# Converter em CMYK
+if sys.argv[1] == '-c':
+    print('Cores CMYK')
+    CMYK = True
+    pastaAtual = sys.argv[2]
+if sys.argv[1] == '-v':
+    VERBOSE = True
+    pastaAtual = sys.argv[2]
 
 
 a = getListaImagens(pastaAtual)
