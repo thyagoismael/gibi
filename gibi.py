@@ -9,7 +9,7 @@ from shutil import rmtree
 
 IGUALAR = True
 PAGINAS_DUPLAS = False
-CMYK = False
+CMYK = True
 VERBOSE = False
 NOVA_PASTA = '_pdf'
 
@@ -189,9 +189,9 @@ if sys.argv[1] == '-d':
     PAGINAS_DUPLAS = True
     pastaAtual = sys.argv[2]
 # Converter em CMYK
-if sys.argv[1] == '-c':
-    print('Cores CMYK')
-    CMYK = True
+if sys.argv[1] == '-r':
+    print('Cores RGB')
+    CMYK = False
     pastaAtual = sys.argv[2]
 if sys.argv[1] == '-v':
     VERBOSE = True
